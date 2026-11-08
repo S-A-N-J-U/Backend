@@ -153,3 +153,8 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# --- Postman Environment & Sensitive Files ---
+*.postman_environment.json
+*environment*.json
+postman_collection.json # (Agar aap chahein toh collections share kar sakte hain, par agar unme secrets hain toh ignore karein)
