@@ -26,23 +26,19 @@ const app = express()
     */
 
 
-   dns.setServers(["1.1.1.1","8.8.8.8"])
-   
-   dotenv.config({
-     path: "./env" 
-   });
+dns.setServers(["1.1.1.1", "8.8.8.8"])
+
+dotenv.config({
+    path: "./.env"
+});
+
 
 connectDB()
-          .then(() => { 
-            app.on("error",(error) => { 
-              console.log('ERROR',error);
-              throw error
-             })
-            app.listen(process.env.PORT || 8000, () => { 
-              console.log(` Server is running at port : ${process.env.PORT}`);
-              
-             });
-           })
-          .catch((error) => { 
-            console.log('MONGODB connection failed',error);
-           })
+    .then(() => {
+        app.listen(process.env.PORT || 8000, () => {
+            console.log(`⚙️ Server is running at port : ${process.env.PORT}`);
+        })
+    })
+    .catch((err) => {
+        console.log("MONGO db connection failed !!! ", err);
+    })
