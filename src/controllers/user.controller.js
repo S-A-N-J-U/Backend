@@ -4,6 +4,22 @@ import { User } from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 
+const generateAccessAndRefreshToken = async (userid) => {
+
+    try {
+        const user = User.findById(userid)
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
+
+        return { accessToken, refreshToken }
+    } catch (error) {
+        throw new ApiError(500, " Something went wrong while generating access and refresh token ")
+    }
+
+}
+
 
 const registerUser = asyncHandler(async (req, res) => {
     // get user detail from frontend
@@ -86,28 +102,69 @@ const loginUser = asyncHandler(async (req, res) => {
     const { email, password, username } = req.body
 
     if (!req.body) throw new ApiError(401, "No request is found")
-    
-    if( !email || !username ) throw new ApiError(400, "Username or email and password are required")
+
+    if (!email || !username) throw new ApiError(400, "Username or email and password are required")
 
     if ((email.trim() === "" || username.trim() === "") && password.trim() === "") throw new ApiError(400, "Username or email and password are required")
 
-    // TODO: Check format of email and strength of password    by regexp  or validator or match keyword in mongoose
+    // TODO: Check format of email and strength of password by regexp  or validator or match keyword in mongoose
 
     // decrypt the password
 
-
-    const existedUser = await User.findOne({
+    const user = await User.findOne({
         $or: [{ username }, { email }]
     })
 
-    if (!existedUser) throw new ApiError(401, "user not found")
+    if (!user) throw new ApiError(404, "user not found")
 
-    const isPasswordCorrect = await User.isPasswordCorrect(password)
+    const isPasswordValid = await user.isPasswordCorrect(password)
 
-    if (!isPasswordCorrect) throw new ApiError(401, "Password is incorrect")
+    if (!isPasswordValid) throw new ApiError(401, "Password is incorrect")
 
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
 
+    const loggedInUser = await User.findById(user._id).select(" -password -refreshToken ")
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+       new ApiResponse(
+        200,
+        {
+            user: loggedInUser, accessToken, refreshToken
+        },
+        "User Logged In Successfuly"
+       )
+    )
 
 })
 
-export { registerUser, loginUser }
+const logoutUser = asyncHandler( async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined
+            }
+        },
+        {
+            new: true
+        }
+    )
+
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+
+    return res.status(200).clearCookie("accessToken", options).clearCookie("refresh", options).json( new ApiResponse(200, {}, " user successfully loggout ") )
+} )
+
+export { registerUser, loginUser, logoutUser }
